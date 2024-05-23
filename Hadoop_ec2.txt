@@ -1,0 +1,177 @@
+### Step 1: Launch an EC2 Instance
+1. **Login to AWS Management Console** and navigate to the EC2 dashboard.
+2. **Launch a new instance**:
+    - **Choose an Amazon Machine Image (AMI)**: Select **Ubuntu Server 20.04 LTS (HVM), SSD Volume Type**.
+    - **Select an Instance Type**: Choose **t2.micro** (eligible for free tier).
+
+### Step 2: Configure Instance Details
+1. **Configure Instance Details**: Use the default settings or adjust according to your needs.
+    - Number of instances: 1
+    - Network: default VPC
+    - Subnet: default subnet
+    - Auto-assign Public IP: Enable
+
+### Step 3: Add Storage
+1. **Add Storage**:
+    - Root volume: 8 GB (default)
+    - Add new volume (optional): For additional storage, you can add another EBS volume.
+
+### Step 4: Configure Security Group
+1. **Configure Security Group**: Create a new security group or use an existing one. Ensure the following ports are open:
+    - **SSH**: Port 22 (for SSH access)
+    - **YARN ResourceManager**: Port 8088 (for YARN web interface)
+    - **HDFS NameNode**: Port 9870 (for HDFS web interface)
+
+Example configuration:
+- **Type**: SSH
+  - **Protocol**: TCP
+  - **Port Range**: 22
+  - **Source**: My IP (or 0.0.0.0/0 for global access)
+- **Type**: Custom TCP
+  - **Protocol**: TCP
+  - **Port Range**: 8088
+  - **Source**: 0.0.0.0/0
+- **Type**: Custom TCP
+  - **Protocol**: TCP
+  - **Port Range**: 9870
+  - **Source**: 0.0.0.0/0
+
+### Step 5: Launch the Instance
+- Review and launch the instance.
+- Download the key pair (.pem file) to access the instance.
+
+### Step 6: Connect to the EC2 Instance
+1. Open a terminal and connect to the instance using SSH:
+    ```sh
+    ssh -i your-key-pair.pem ubuntu@your-ec2-public-ip
+    ```
+
+### Step 7: Install Java
+1. Update package lists and install Java:
+    ```sh
+    sudo apt update
+    sudo apt install default-jdk -y
+    java -version
+    ```
+
+### Step 8: Download and Extract Hadoop
+1. Download Hadoop:
+    ```sh
+    wget https://downloads.apache.org/hadoop/common/hadoop-3.3.2/hadoop-3.3.2.tar.gz
+    ```
+2. Extract Hadoop:
+    ```sh
+    tar -xzvf hadoop-3.3.2.tar.gz
+    ```
+3. Move Hadoop to `/usr/local/hadoop`:
+    ```sh
+    sudo mv hadoop-3.3.2 /usr/local/hadoop
+    ```
+
+### Step 9: Configure Hadoop
+1. **Set environment variables**:
+    ```sh
+    sudo nano ~/.bashrc
+    ```
+    Add the following lines:
+    ```sh
+    export HADOOP_HOME=/usr/local/hadoop
+    export HADOOP_INSTALL=$HADOOP_HOME
+    export HADOOP_MAPRED_HOME=$HADOOP_HOME
+    export HADOOP_COMMON_HOME=$HADOOP_HOME
+    export HADOOP_HDFS_HOME=$HADOOP_HOME
+    export YARN_HOME=$HADOOP_HOME
+    export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
+    export PATH=$PATH:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
+    ```
+    Reload `.bashrc`:
+    ```sh
+    source ~/.bashrc
+    ```
+
+2. **Configure Hadoop files**:
+    - `core-site.xml`:
+        ```sh
+        sudo nano $HADOOP_HOME/etc/hadoop/core-site.xml
+        ```
+        Add:
+        ```xml
+        <configuration>
+            <property>
+                <name>fs.defaultFS</name>
+                <value>hdfs://localhost:9000</value>
+            </property>
+        </configuration>
+        ```
+
+    - `hdfs-site.xml`:
+        ```sh
+        sudo nano $HADOOP_HOME/etc/hadoop/hdfs-site.xml
+        ```
+        Add:
+        ```xml
+        <configuration>
+            <property>
+                <name>dfs.replication</name>
+                <value>1</value>
+            </property>
+        </configuration>
+        ```
+
+    - `mapred-site.xml`:
+        ```sh
+        cp $HADOOP_HOME/etc/hadoop/mapred-site.xml.template $HADOOP_HOME/etc/hadoop/mapred-site.xml
+        sudo nano $HADOOP_HOME/etc/hadoop/mapred-site.xml
+        ```
+        Add:
+        ```xml
+        <configuration>
+            <property>
+                <name>mapreduce.framework.name</name>
+                <value>yarn</value>
+            </property>
+        </configuration>
+        ```
+
+    - `yarn-site.xml`:
+        ```sh
+        sudo nano $HADOOP_HOME/etc/hadoop/yarn-site.xml
+        ```
+        Add:
+        ```xml
+        <configuration>
+            <property>
+                <name>yarn.nodemanager.aux-services</name>
+                <value>mapreduce_shuffle</value>
+            </property>
+        </configuration>
+        ```
+
+### Step 10: Format the Hadoop Filesystem
+1. Format HDFS:
+    ```sh
+    hdfs namenode -format
+    ```
+
+### Step 11: Start Hadoop
+1. Start HDFS:
+    ```sh
+    start-dfs.sh
+    ```
+2. Start YARN:
+    ```sh
+    start-yarn.sh
+    ```
+
+### Step 12: Verify Hadoop Installation
+1. Check running processes:
+    ```sh
+    jps
+    ```
+    You should see `NameNode`, `DataNode`, `ResourceManager`, `NodeManager` running.
+
+2. **Access Hadoop web interfaces**:
+    - HDFS: `http://your-ec2-public-ip:9870/`
+    - YARN: `http://your-ec2-public-ip:8088/`
+
+By following these steps, you can configure and install Hadoop on your AWS EC2 instance running Ubuntu, and verify the setup via the browser.
